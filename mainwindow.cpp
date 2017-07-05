@@ -23,6 +23,8 @@ MainWindow::MainWindow(QWidget *parent) :
     for (int j=0;j<headers.length();j++){
         model->setHeaderData(j,Qt::Horizontal,headers.at(j));
     }
+    qDebug()<<"MainWindow End";
+
 
 }
 
@@ -70,8 +72,8 @@ void MainWindow::AddNewPerson()
     QObject::connect(btnExt,SIGNAL(clicked()),&Dial,SLOT(close()));
     QObject::connect(btnCrt,SIGNAL(clicked()),SLOT(CreateNewPerson()));
 #define ADDMAC(NAME)  layout->addWidget(NAME); dialogWidgets.append(NAME);
-    QLineEdit** lneds;
-    QLabel** lbls;
+    QLineEdit** lneds=new QLineEdit*[model->columnCount()];
+    QLabel** lbls=new QLabel*[model->columnCount()];
     for (int j=0;j<model->columnCount();j++){
         lneds[j] = new QLineEdit(&Dial);
         lbls[j] = new QLabel(model->headerData(j,Qt::Horizontal).toString(),&Dial);
@@ -82,7 +84,15 @@ void MainWindow::AddNewPerson()
     layout->addWidget(btnCrt);
     layout->addWidget(btnExt);
     Dial.setLayout(layout);
+
     Dial.exec();
+    for (int i=model->columnCount()-1;i>=0;i--)
+    {
+        delete lneds[i];
+        delete lbls[i];
+    }
+    delete [] lneds;
+    delete [] lbls;
 }
 
 void MainWindow::CreateNewGroup()
@@ -90,9 +100,13 @@ void MainWindow::CreateNewGroup()
     ui->comboBox->addItem( ((QLineEdit*)dialogWidgets[0])->text() );
     QFile NewGroup( QApplication::applicationDirPath()+"/data/"+(((QLineEdit*)dialogWidgets[0])->text())+".tabl");
     NewGroup.open(QFile::WriteOnly);
+    QTextStream stream(&NewGroup);
+    stream.setCodec("UTF-8");
+    stream<<QString("Фамилия Имя Отчество Телефон Должность Доп.Параметр1 Доп.Параметр2").toUtf8()<<endl;
     NewGroup.close();
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"));
     GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text());
+    qDebug()<<"AddPerson End";
 
 
 }
@@ -100,13 +114,14 @@ void MainWindow::CreateNewGroup()
 void MainWindow::CreateNewPerson()
 {
 
+    qDebug()<<"CreatePerson";
     model->setRowCount(model->rowCount()+1);
     QModelIndex id;
     QFile Group( QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+".tabl");
-    if (!Group.open(QFile::WriteOnly)) qDebug()<<"NOT OPEN CreateNewPerson";
+    if (!Group.open(QFile::WriteOnly|QFile::ReadOnly)) qDebug()<<"NOT OPEN CreateNewPerson";
     QTextStream stream(&Group);
     stream.setCodec("UTF-8");
-
+    stream.readAll();
     for (int j=0;j<model->columnCount();j++){
         id=model->index(model->rowCount()-1,j);
         model->setData(id,((QLineEdit*)dialogWidgets[j])->text());
@@ -118,12 +133,15 @@ void MainWindow::CreateNewPerson()
             stream<<((QLineEdit*)dialogWidgets[j])->text()<< " ";
     }
     stream<<endl;
+    Group.close();
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"));
     GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text()+" "+((QLineEdit*)dialogWidgets[1])->text()+" "+((QLineEdit*)dialogWidgets[2])->text());
+    qDebug()<<"CreatePErson End";
 }
 
 void MainWindow::Reload()
 {
+    qDebug()<<"Reload";
     QDir dir(QApplication::applicationDirPath()+"/data");
     if (!dir.exists())
     {
@@ -135,6 +153,7 @@ void MainWindow::Reload()
     for (int i=0;i<tabls.length();i++){
         ui->comboBox->addItem(tabls[i].mid(0,tabls[i].length()-5));
     }
+    //ReloadFile(tabls[0].mid(0,tabls[0].length()-5));
     //qDebug()<<tabls.length();
 
 }
@@ -151,6 +170,7 @@ void MainWindow::on_pushButton_3_clicked()
 
 bool MainWindow::ReloadFile(const QString &str)
 {
+    qDebug()<<"ReloadFile";
     QFile group( QApplication::applicationDirPath()+"/data/"+str+".tabl");
     if (!group.open(QFile::WriteOnly |QFile::ReadOnly)) return false;
     //qDebug()<<"OPENED ReloadFile";
@@ -206,7 +226,7 @@ bool MainWindow::ReloadFile(const QString &str)
                     if (strg[j]=='"'){
                         inside=false;
                         id=model->index(i,k);
-                        model->setData(id,strg.mid(rememberLastI,j-rememberLastI+1));
+                        model->setData(id,strg.mid(rememberLastI,j-rememberLastI));
                         k++;
 
                     }
@@ -217,12 +237,16 @@ bool MainWindow::ReloadFile(const QString &str)
                 if (!inside)
                     rememberLastI=j+1;
                 if ((strg[j+1]=='"')&&(!inside))
+                {
+                    rememberLastI++;
                     inside=true;
+                }
             }
         }
         i++;
     }
     group.close();
+    qDebug()<<"End ReloadFile";
     return true;
 }
 
