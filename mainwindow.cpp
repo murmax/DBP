@@ -9,21 +9,23 @@
 #include <QDir>
 #include <QModelIndex>
 #include <QDebug>
+//#include <ActiveQt/QAxWidget>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    Reload();
     model = new QStandardItemModel(0,7,this);
+    Reload();
     ui->tableView->setModel(model);
     QStringList headers={"Фамилия","Имя","Отчество","Телефон","Должность","Доп.Параметр1","Доп.Параметр2"};
 
     for (int j=0;j<headers.length();j++){
         model->setHeaderData(j,Qt::Horizontal,headers.at(j));
     }
-    qDebug()<<"MainWindow End";
+    ui->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    //qDebug()<<"MainWindow End";
 
 
 }
@@ -50,9 +52,17 @@ void MainWindow::AddNewGroup()
     QObject::connect(btnCrt,SIGNAL(clicked()),SLOT(CreateNewGroup()));
 #define ADDMAC(NAME)  layout->addWidget(NAME); dialogWidgets.append(NAME);
     QLineEdit* lned = new QLineEdit(&Dial);
+    QLineEdit* lned1 = new QLineEdit(&Dial);
+    QLineEdit* lned2 = new QLineEdit(&Dial);
     QLabel* lbl = new QLabel("Название группы",&Dial);
+    QLabel* lbl1 = new QLabel("Доп. параметр 1",&Dial);
+    QLabel* lbl2 = new QLabel("Доп. параметр 2",&Dial);
     layout->addWidget(lbl);
     ADDMAC(lned)
+    layout->addWidget(lbl1);
+    ADDMAC(lned1)
+    layout->addWidget(lbl2);
+    ADDMAC(lned2)
 
 #undef ADDMAC
     layout->addWidget(btnCrt);
@@ -97,13 +107,13 @@ void MainWindow::AddNewPerson()
 
 void MainWindow::CreateNewGroup()
 {
-    ui->comboBox->addItem( ((QLineEdit*)dialogWidgets[0])->text() );
     QFile NewGroup( QApplication::applicationDirPath()+"/data/"+(((QLineEdit*)dialogWidgets[0])->text())+".tabl");
     NewGroup.open(QFile::WriteOnly);
     QTextStream stream(&NewGroup);
     stream.setCodec("UTF-8");
-    stream<<QString("Фамилия Имя Отчество Телефон Должность Доп.Параметр1 Доп.Параметр2").toUtf8()<<endl;
+    stream<<QString("Фамилия Имя Отчество Телефон Должность "+(((QLineEdit*)dialogWidgets[1])->text())+" "+(((QLineEdit*)dialogWidgets[2])->text())).toUtf8()<<endl;
     NewGroup.close();
+    ui->comboBox->addItem( ((QLineEdit*)dialogWidgets[0])->text() );
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"));
     GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text());
     qDebug()<<"AddPerson End";
@@ -153,9 +163,7 @@ void MainWindow::Reload()
     for (int i=0;i<tabls.length();i++){
         ui->comboBox->addItem(tabls[i].mid(0,tabls[i].length()-5));
     }
-    //ReloadFile(tabls[0].mid(0,tabls[0].length()-5));
-    //qDebug()<<tabls.length();
-
+    ReloadFile(tabls[0].mid(0,tabls[0].length()-5));
 }
 
 void MainWindow::on_pushButton_clicked()
@@ -173,7 +181,7 @@ bool MainWindow::ReloadFile(const QString &str)
     qDebug()<<"ReloadFile";
     QFile group( QApplication::applicationDirPath()+"/data/"+str+".tabl");
     if (!group.open(QFile::WriteOnly |QFile::ReadOnly)) return false;
-    //qDebug()<<"OPENED ReloadFile";
+    qDebug()<<"OPENED ReloadFile";
     QString strg;
     QTextStream stream(&group);
     stream.setCodec("UTF-8");
@@ -250,10 +258,7 @@ bool MainWindow::ReloadFile(const QString &str)
     return true;
 }
 
-void MainWindow::on_comboBox_currentIndexChanged(const QString &arg1)
-{
 
-}
 
 void MainWindow::on_pushButton_2_clicked()
 {
@@ -285,4 +290,16 @@ void MainWindow::on_pushButton_2_clicked()
         }
         Dir.rmpath(Dir.currentPath());
     }*/
+}
+
+void MainWindow::on_pushButton_4_clicked()
+{
+
+    if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
+    {
+
+        qDebug()<<"EQUAL 1";
+        model->removeRow(ui->tableView->selectionModel()->currentIndex().row());
+
+    }
 }
