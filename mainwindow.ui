@@ -58,6 +58,13 @@
         </property>
        </spacer>
       </item>
+      <item>
+       <widget class="QPushButton" name="pushButton_5">
+        <property name="text">
+         <string>Сохранить изменения</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
@@ -117,16 +124,6 @@
      </layout>
     </item>
    </layout>
-   <zorder>tableView</zorder>
-   <zorder>pushButton_4</zorder>
-   <zorder>pushButton_3</zorder>
-   <zorder>pushButton</zorder>
-   <zorder>pushButton_2</zorder>
-   <zorder>horizontalLayoutWidget</zorder>
-   <zorder>horizontalLayoutWidget</zorder>
-   <zorder>verticalLayoutWidget_2</zorder>
-   <zorder>horizontalLayoutWidget_2</zorder>
-   <zorder>horizontalSpacer_2</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

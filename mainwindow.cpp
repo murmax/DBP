@@ -17,14 +17,15 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     model = new QStandardItemModel(0,7,this);
-    Reload();
-    ui->tableView->setModel(model);
     QStringList headers={"Фамилия","Имя","Отчество","Телефон","Должность","Доп.Параметр1","Доп.Параметр2"};
 
     for (int j=0;j<headers.length();j++){
         model->setHeaderData(j,Qt::Horizontal,headers.at(j));
     }
     ui->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+
+    Reload();
+    ui->tableView->setModel(model);
     //qDebug()<<"MainWindow End";
 
 
@@ -37,7 +38,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_comboBox_activated(const QString &arg1)
 {
-    ReloadFile(arg1);
+    //ReloadFile(arg1);
 }
 
 void MainWindow::AddNewGroup()
@@ -105,13 +106,46 @@ void MainWindow::AddNewPerson()
     delete [] lbls;
 }
 
+void MainWindow::SaveTabl()
+{
+    QFile file( QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+".tabl");
+    file.remove();
+    file.open(QFile::WriteOnly);
+    QTextStream stream(&file);
+    stream.setCodec("UTF-8");
+    stream<<QString("Фамилия Имя Отчество Телефон Должность "+model->headerData(5,Qt::Horizontal).toString()+" "+model->headerData(5,Qt::Horizontal).toString()).toUtf8()<<endl;
+    int j;
+    QModelIndex id;
+    for (int i=0;i<model->rowCount();i++)
+    {
+        for (j=0;j<model->columnCount();j++)
+        {
+            id = model->index(i,j);
+            stream<<model->data(id).toString().toUtf8()<<" ";
+        }
+        stream<<endl;
+    }
+}
+
 void MainWindow::CreateNewGroup()
 {
     QFile NewGroup( QApplication::applicationDirPath()+"/data/"+(((QLineEdit*)dialogWidgets[0])->text())+".tabl");
     NewGroup.open(QFile::WriteOnly);
     QTextStream stream(&NewGroup);
     stream.setCodec("UTF-8");
-    stream<<QString("Фамилия Имя Отчество Телефон Должность "+(((QLineEdit*)dialogWidgets[1])->text())+" "+(((QLineEdit*)dialogWidgets[2])->text())).toUtf8()<<endl;
+
+    QString param1,param2;
+    if (( !(((QLineEdit*)dialogWidgets[1])->text()).contains(' '))&&(!(((QLineEdit*)dialogWidgets[1])->text()=="")))
+        param1=((QLineEdit*)dialogWidgets[1])->text();
+    else
+        param1='"'+((QLineEdit*)dialogWidgets[1])->text()+'"';
+
+    if (( !(((QLineEdit*)dialogWidgets[2])->text()).contains(' '))&&(!(((QLineEdit*)dialogWidgets[2])->text()=="")))
+        param2=((QLineEdit*)dialogWidgets[2])->text();
+    else
+        param2='"'+((QLineEdit*)dialogWidgets[2])->text()+'"';
+
+    stream<<QString("Фамилия Имя Отчество Телефон Должность "+param1+" "+param2).toUtf8()<<endl;
     NewGroup.close();
     ui->comboBox->addItem( ((QLineEdit*)dialogWidgets[0])->text() );
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"));
@@ -146,7 +180,7 @@ void MainWindow::CreateNewPerson()
     Group.close();
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"));
     GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text()+" "+((QLineEdit*)dialogWidgets[1])->text()+" "+((QLineEdit*)dialogWidgets[2])->text());
-    qDebug()<<"CreatePErson End";
+    qDebug()<<"CreatePerson End";
 }
 
 void MainWindow::Reload()
@@ -163,7 +197,8 @@ void MainWindow::Reload()
     for (int i=0;i<tabls.length();i++){
         ui->comboBox->addItem(tabls[i].mid(0,tabls[i].length()-5));
     }
-    ReloadFile(tabls[0].mid(0,tabls[0].length()-5));
+    if (tabls.length()>0)
+        ReloadFile(tabls[0].mid(0,tabls[0].length()-5));
 }
 
 void MainWindow::on_pushButton_clicked()
@@ -176,6 +211,11 @@ void MainWindow::on_pushButton_3_clicked()
     AddNewPerson();
 }
 
+void MainWindow::on_comboBox_currentIndexChanged(const QString &arg1)
+{
+    ReloadFile(arg1);
+}
+
 bool MainWindow::ReloadFile(const QString &str)
 {
     qDebug()<<"ReloadFile";
@@ -186,21 +226,52 @@ bool MainWindow::ReloadFile(const QString &str)
     QTextStream stream(&group);
     stream.setCodec("UTF-8");
     int k=0,i=0,rememberLastI=0;
+    bool inside=false;
     strg=stream.readLine();
     {
         for (i=0;i<strg.length();i++)
         {
-            if (((strg[i]==' ')&&(strg[i+1]!=' ')) || ((strg[i]!=' ')&&(i+1>=strg.length())))
+            qDebug()<<"I:"<<i<<" Symb: "<<strg[i]<<" inside:"<<(int)inside;
+            if ((strg[i]!=' ')&&(((strg[i+1]==' ')) || (i+1>=strg.length())))
             {
-                k++;
-                qDebug()<<"K:"<<k;
-                if (k>4) {
-                    if (k>5){
-                        model->setHeaderData(k-1,Qt::Horizontal,strg.mid(rememberLastI,i-rememberLastI+1));
-                        qDebug()<<strg.mid(rememberLastI,i-rememberLastI+1);
+
+
+                if (!inside)
+                {
+                    k++;
+                    qDebug()<<"K:"<<k;
+                    if (k>4) {
+                        if (k>5){
+                            model->setHeaderData(k-1,Qt::Horizontal,strg.mid(rememberLastI,i-rememberLastI+1));
+                            qDebug()<<strg.mid(rememberLastI,i-rememberLastI+1);
+                        }
                     }
-                    if (k==7) break;
+                    if (k==model->columnCount()) break;
+                } else
+                {
+                    if ((strg[i]=='"')||(i+1>=strg.length())) {
+                        inside=false;
+                        qDebug()<<"End of Inside I: "<<i;
+                        k++;
+                        qDebug()<<"K:"<<k;
+                        if (k>5){
+                           model->setHeaderData(k-1,Qt::Horizontal,strg.mid(rememberLastI,i-rememberLastI));
+                           qDebug()<<strg.mid(rememberLastI,i-rememberLastI);
+                        }
+                        if (k==model->columnCount()) break;
+                    }
+                }
+            }
+
+            if  ((strg[i]==' ')&&(strg[i+1]!=' '))
+            {
+                if (!inside){
                     rememberLastI=i+1;
+                    if (strg[i+1]=='"')
+                    {
+                        rememberLastI++;
+                        inside=true;
+                    }
                 }
             }
         }
@@ -208,8 +279,7 @@ bool MainWindow::ReloadFile(const QString &str)
     QModelIndex id;
     i=0;
     int j;
-    bool inside;
-
+    inside=false;
 
     if (model->rowCount()!=0)
         model->removeRows(0,model->rowCount());
@@ -271,25 +341,12 @@ void MainWindow::on_pushButton_2_clicked()
     }
     Dir.removeRecursively();
     ui->comboBox->removeItem(ui->comboBox->currentIndex());
-    /*
-    QStringList tabls = dir.entryList(QStringList("*"));
-    QStringList tabls2;
-    for (int i=2;i<tabls.length();i++)
+    if (ui->comboBox->count()==0)
     {
-        Dir.setPath(QApplication::applicationDirPath()+"/data/"+tabls.at(i)+"/");
-        if (!dir.exists())
-        {
-            continue;
-        }
-        tabls2 = dir.entryList(QStringList("*.tabl"));
-        for (int j=0;j<tabls2.length();j++)
-        {
-            QFile fl(QApplication::applicationDirPath()+"/data/"+tabls.at(i)+"/"+tabls2.at(j));
-            if (fl.exists())
-                fl.remove();
-        }
-        Dir.rmpath(Dir.currentPath());
-    }*/
+        setStandartHeaders();
+    }
+
+
 }
 
 void MainWindow::on_pushButton_4_clicked()
@@ -297,9 +354,22 @@ void MainWindow::on_pushButton_4_clicked()
 
     if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
     {
-
-        qDebug()<<"EQUAL 1";
         model->removeRow(ui->tableView->selectionModel()->currentIndex().row());
+        SaveTabl();
+    }
+}
 
+void MainWindow::on_pushButton_5_clicked()
+{
+    SaveTabl();
+}
+
+void MainWindow::setStandartHeaders()
+{
+
+    QStringList headers={"Фамилия","Имя","Отчество","Телефон","Должность","Доп.Параметр1","Доп.Параметр2"};
+
+    for (int j=0;j<headers.length();j++){
+        model->setHeaderData(j,Qt::Horizontal,headers.at(j));
     }
 }
