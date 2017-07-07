@@ -9,6 +9,9 @@
 #include <QDir>
 #include <QModelIndex>
 #include <QDebug>
+#include <QMessageBox>
+#include <QDesktopServices>
+#include <QUrl>
 //#include <ActiveQt/QAxWidget>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -112,8 +115,14 @@ void MainWindow::SaveTabl()
     file.remove();
     file.open(QFile::WriteOnly);
     QTextStream stream(&file);
+    QString str,str1;
+    if ((str=model->headerData(5,Qt::Horizontal).toString()).contains(" ")||(str==""))
+        str='"'+str+'"';
+    if ((str1=model->headerData(6,Qt::Horizontal).toString()).contains(" ")||(str1==""))
+        str1='"'+str1+'"';
+
     stream.setCodec("UTF-8");
-    stream<<QString("Фамилия Имя Отчество Телефон Должность "+model->headerData(5,Qt::Horizontal).toString()+" "+model->headerData(5,Qt::Horizontal).toString()).toUtf8()<<endl;
+    stream<<QString("Фамилия Имя Отчество Телефон Должность "+str+" "+str1).toUtf8()<<endl;
     int j;
     QModelIndex id;
     for (int i=0;i<model->rowCount();i++)
@@ -121,7 +130,10 @@ void MainWindow::SaveTabl()
         for (j=0;j<model->columnCount();j++)
         {
             id = model->index(i,j);
-            stream<<model->data(id).toString().toUtf8()<<" ";
+            str=model->data(id).toString();
+            if ((str.contains(' '))||(str==""))
+                str='"'+str+'"';
+            stream<<str.toUtf8()<<" ";
         }
         stream<<endl;
     }
@@ -130,6 +142,15 @@ void MainWindow::SaveTabl()
 void MainWindow::CreateNewGroup()
 {
     QFile NewGroup( QApplication::applicationDirPath()+"/data/"+(((QLineEdit*)dialogWidgets[0])->text())+".tabl");
+    if (NewGroup.open(QFile::ReadOnly))
+    {
+        NewGroup.close();
+        QMessageBox MB;
+        MB.setText("Название новой группы не должно совпадать с названием существующей.");
+        MB.exec();
+        return;
+    }
+    NewGroup.close();
     NewGroup.open(QFile::WriteOnly);
     QTextStream stream(&NewGroup);
     stream.setCodec("UTF-8");
@@ -151,8 +172,6 @@ void MainWindow::CreateNewGroup()
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"));
     GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text());
     qDebug()<<"AddPerson End";
-
-
 }
 
 void MainWindow::CreateNewPerson()
@@ -179,7 +198,7 @@ void MainWindow::CreateNewPerson()
     stream<<endl;
     Group.close();
     QDir GroupDir(( QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"));
-    GroupDir.mkdir(((QLineEdit*)dialogWidgets[0])->text()+" "+((QLineEdit*)dialogWidgets[1])->text()+" "+((QLineEdit*)dialogWidgets[2])->text());
+    GroupDir.mkdir(QString::number(model->rowCount()-1)+" "+((QLineEdit*)dialogWidgets[0])->text()+" "+((QLineEdit*)dialogWidgets[1])->text()+" "+((QLineEdit*)dialogWidgets[2])->text());
     qDebug()<<"CreatePerson End";
 }
 
@@ -231,7 +250,7 @@ bool MainWindow::ReloadFile(const QString &str)
     {
         for (i=0;i<strg.length();i++)
         {
-            qDebug()<<"I:"<<i<<" Symb: "<<strg[i]<<" inside:"<<(int)inside;
+            //qDebug()<<"I:"<<i<<" Symb: "<<strg[i]<<" inside:"<<(int)inside;
             if ((strg[i]!=' ')&&(((strg[i+1]==' ')) || (i+1>=strg.length())))
             {
 
@@ -310,10 +329,14 @@ bool MainWindow::ReloadFile(const QString &str)
                     }
                 }
             }
-            if  ((strg[j]==' ')&&(strg[j+1]!=' '))
+            if  ( ((strg[j]==' ')||(j==0) )&&(strg[j+1]!=' '))
             {
                 if (!inside)
                     rememberLastI=j+1;
+                if ((j==0)&&(strg[j]=='"'))
+                {
+                    inside=true;
+                }
                 if ((strg[j+1]=='"')&&(!inside))
                 {
                     rememberLastI++;
@@ -345,8 +368,6 @@ void MainWindow::on_pushButton_2_clicked()
     {
         setStandartHeaders();
     }
-
-
 }
 
 void MainWindow::on_pushButton_4_clicked()
@@ -354,6 +375,27 @@ void MainWindow::on_pushButton_4_clicked()
 
     if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
     {
+        {
+            QString name = QString::number(ui->tableView->selectionModel()->currentIndex().row())
+                    +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),0))).toString()
+                    +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),1))).toString()
+                    +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),2))).toString();
+            QDir dir(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+name+"/");
+            dir.removeRecursively();
+            QDir dir2(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/");
+            QStringList tabls = dir2.entryList(QStringList("*"));
+            QString NewName;
+            for (int i=0;i<tabls.length();i++)
+            {
+                if (( !((QString)tabls[i]).contains('.') )&&( (((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' ')-1)).toInt()>ui->tableView->selectionModel()->currentIndex().row()))
+                {
+                    QDir changeDir(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+tabls[i]+"/");
+                    NewName=QString::number((((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' ')-1)).toInt()+1)+((QString)tabls[i]).mid(((QString)tabls[i]).indexOf(' '));
+                    changeDir.rename(tabls[i],NewName);
+                }
+            }
+
+        }
         model->removeRow(ui->tableView->selectionModel()->currentIndex().row());
         SaveTabl();
     }
@@ -371,5 +413,25 @@ void MainWindow::setStandartHeaders()
 
     for (int j=0;j<headers.length();j++){
         model->setHeaderData(j,Qt::Horizontal,headers.at(j));
+    }
+}
+
+void MainWindow::on_pushButton_6_clicked()
+{
+
+    if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
+    {
+
+        QString name = (model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),0))).toString()
+                +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),1))).toString()
+                +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),2))).toString();
+        QDesktopServices::openUrl(QUrl("file:///"+QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+name));
+
+    }
+    else
+    {
+        QMessageBox MB;
+        MB.setText("Вы должны выбрать в таблице чью папку открыть.");
+        MB.exec();
     }
 }
