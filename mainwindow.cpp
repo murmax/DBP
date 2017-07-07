@@ -127,16 +127,39 @@ void MainWindow::SaveTabl()
     QModelIndex id;
     for (int i=0;i<model->rowCount();i++)
     {
+        str1=QString::number(i);
         for (j=0;j<model->columnCount();j++)
         {
             id = model->index(i,j);
             str=model->data(id).toString();
+            if (j<3)
+                str1=str1+" "+str;
+
+
             if ((str.contains(' '))||(str==""))
                 str='"'+str+'"';
             stream<<str.toUtf8()<<" ";
         }
+        QDir dir(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+str1+"/");
+        if (!dir.exists()) //значит что-то поменяли в имени/фамилии/отчестве. Находим по номеру.
+        {
+            QDir dir2(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/");
+            QStringList tabls = dir2.entryList(QStringList("*"));
+            for (int j=0;j<tabls.length();j++)
+            {
+                qDebug()<<"J: "<<j<<" str:"<<((QString)tabls[j])<<" int: "<<(((QString)tabls[j]).left(((QString)tabls[j]).indexOf(' ')));
+                if (( !((QString)tabls[j]).contains('.') )&&( (((QString)tabls[j]).left(((QString)tabls[j]).indexOf(' '))).toInt()==i))
+                {
+                    dir2.rename(tabls[j],str1);
+                }
+            }
+        }
         stream<<endl;
     }
+
+
+
+
 }
 
 void MainWindow::CreateNewGroup()
@@ -258,11 +281,11 @@ bool MainWindow::ReloadFile(const QString &str)
                 if (!inside)
                 {
                     k++;
-                    qDebug()<<"K:"<<k;
+                    //qDebug()<<"K:"<<k;
                     if (k>4) {
                         if (k>5){
                             model->setHeaderData(k-1,Qt::Horizontal,strg.mid(rememberLastI,i-rememberLastI+1));
-                            qDebug()<<strg.mid(rememberLastI,i-rememberLastI+1);
+                            //qDebug()<<strg.mid(rememberLastI,i-rememberLastI+1);
                         }
                     }
                     if (k==model->columnCount()) break;
@@ -270,12 +293,12 @@ bool MainWindow::ReloadFile(const QString &str)
                 {
                     if ((strg[i]=='"')||(i+1>=strg.length())) {
                         inside=false;
-                        qDebug()<<"End of Inside I: "<<i;
+                        //qDebug()<<"End of Inside I: "<<i;
                         k++;
-                        qDebug()<<"K:"<<k;
+                        //qDebug()<<"K:"<<k;
                         if (k>5){
                            model->setHeaderData(k-1,Qt::Horizontal,strg.mid(rememberLastI,i-rememberLastI));
-                           qDebug()<<strg.mid(rememberLastI,i-rememberLastI);
+                           //qDebug()<<strg.mid(rememberLastI,i-rememberLastI);
                         }
                         if (k==model->columnCount()) break;
                     }
@@ -310,12 +333,14 @@ bool MainWindow::ReloadFile(const QString &str)
         strg = stream.readLine(512);
         for (j=0;j<strg.length();j++)
         {
+            qDebug()<<"J:"<<j<<" Symb: "<<strg[j]<<" inside:"<<(int)inside;
             if ((strg[j]!=' ')&& ((strg[j+1]==' ')|| (j+1==strg.length())) )
             {
                 if (!inside){
                     id=model->index(i,k);
                     if (strg.mid(rememberLastI,j-rememberLastI+1)!="-")
                         model->setData(id,strg.mid(rememberLastI,j-rememberLastI+1));
+                    qDebug()<<"Set not inside:"<<strg.mid(rememberLastI,j-rememberLastI+1);
                     k++;
                 }
                 else
@@ -325,21 +350,26 @@ bool MainWindow::ReloadFile(const QString &str)
                         id=model->index(i,k);
                         model->setData(id,strg.mid(rememberLastI,j-rememberLastI));
                         k++;
+                        qDebug()<<"Set inside:"<<strg.mid(rememberLastI,j-rememberLastI);
 
                     }
                 }
             }
             if  ( ((strg[j]==' ')||(j==0) )&&(strg[j+1]!=' '))
             {
-                if (!inside)
-                    rememberLastI=j+1;
+                if (!inside){
+                    if (j==0)
+                        rememberLastI=j;
+                    else
+                        rememberLastI=j+1;
+                    if (strg[j+1]=='"')
+                    {
+                        rememberLastI++;
+                        inside=true;
+                    }
+                }
                 if ((j==0)&&(strg[j]=='"'))
                 {
-                    inside=true;
-                }
-                if ((strg[j+1]=='"')&&(!inside))
-                {
-                    rememberLastI++;
                     inside=true;
                 }
             }
@@ -372,7 +402,7 @@ void MainWindow::on_pushButton_2_clicked()
 
 void MainWindow::on_pushButton_4_clicked()
 {
-
+    SaveTabl();
     if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
     {
         {
@@ -387,10 +417,11 @@ void MainWindow::on_pushButton_4_clicked()
             QString NewName;
             for (int i=0;i<tabls.length();i++)
             {
-                if (( !((QString)tabls[i]).contains('.') )&&( (((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' ')-1)).toInt()>ui->tableView->selectionModel()->currentIndex().row()))
+                qDebug()<<"I: "<<i<<" str:"<<((QString)tabls[i])<<" int: "<<(((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' ')));
+                if (( !((QString)tabls[i]).contains('.') )&&( (((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' '))).toInt()>ui->tableView->selectionModel()->currentIndex().row()))
                 {
-                    QDir changeDir(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+tabls[i]+"/");
-                    NewName=QString::number((((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' ')-1)).toInt()+1)+((QString)tabls[i]).mid(((QString)tabls[i]).indexOf(' '));
+                    QDir changeDir(QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/");
+                    NewName=QString::number((((QString)tabls[i]).left(((QString)tabls[i]).indexOf(' '))).toInt()-1)+((QString)tabls[i]).mid(((QString)tabls[i]).indexOf(' '));
                     changeDir.rename(tabls[i],NewName);
                 }
             }
@@ -422,7 +453,8 @@ void MainWindow::on_pushButton_6_clicked()
     if (ui->tableView->selectionModel()->selectedIndexes().length()==1)
     {
 
-        QString name = (model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),0))).toString()
+        QString name = QString::number(ui->tableView->selectionModel()->currentIndex().row())
+                +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),0))).toString()
                 +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),1))).toString()
                 +" "+(model->data(model->index(ui->tableView->selectionModel()->currentIndex().row(),2))).toString();
         QDesktopServices::openUrl(QUrl("file:///"+QApplication::applicationDirPath()+"/data/"+ui->comboBox->currentText()+"/"+name));
